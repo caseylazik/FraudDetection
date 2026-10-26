@@ -1,0 +1,5 @@
+# Ignore the full raw dataset
+/data/data.csv
+
+# Keep the sample/example dataset tracked
+!/data/data_sample.csv
