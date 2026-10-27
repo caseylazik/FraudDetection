@@ -3,7 +3,7 @@ import numpy as np
 
 
 def load_data():
-    data = pd.read_csv("./data/data.csv")
+    data = pd.read_csv("../data/data.csv")
 
     # Need to convert the panda column objects (panda series) to numpy array via .values
  
