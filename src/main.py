@@ -1,9 +1,7 @@
-from utilities import load_data
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -12,15 +10,14 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     accuracy_score,
-    classification_report,
     confusion_matrix,
     ConfusionMatrixDisplay
 )
+from sklearn.ensemble import RandomForestClassifier
+from utilities import load_data
 
 
 def main():
-
-    seed = 23
 
     def eda():
         df = pd.read_csv("../data/data.csv")
@@ -126,38 +123,8 @@ def main():
     '''
     def logistic_regression_model():
 
-        df = pd.read_csv("../data/data.csv")
-
-        X = df.drop(columns=["Class"])
-        y = df["Class"]
-
-        # Since we have a super imbalanced class where 0.172749% of cases are
-        # fraudulent, and 99.82% are not, we should stratify with stratify = y
-        # such that the model preserves roughly the same distribution between
-        # these two classes. Stratify ensures that the training and test splits
-        # have about the same proportions of classes (doesn't change test to
-        # train size ratio, just means that one of the splits won't have much
-        # more fraud cases since so few to begin with).
-
-        # Let's do a 70% training, 15% validation, 15% test split.
-        test_size = 0.15
-        train_size = 0.7
-        val_size = 0.15
-
-        X_temp, X_test, y_temp, y_test = train_test_split(X, y,
-                                                          test_size=test_size,
-                                                          random_state=seed,
-                                                          stratify=y)
-
-        # Since X_temp and y_temp are currently 0.85 of the total data, to get
-        # validation to be also 0.15 like test, we need the relative size,
-        # Proportion relative to original
-        val_prop = val_size / (train_size + val_size)
-
-        X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp,
-                                                          test_size=val_prop,
-                                                          random_state=seed,
-                                                          stratify=y_temp)
+        (X_temp, X_test, y_temp, y_test,
+         X_train, X_val, y_train, y_val) = load_data()
 
         print("Training samples:", len(X_train))
         print("Validation samples:", len(X_val))
@@ -173,6 +140,9 @@ def main():
         scaler = StandardScaler()  # Manual way to scale, can also use pipeline
         X_train_scaled = scaler.fit_transform(X_train)
         X_val_scaled = scaler.transform(X_val)
+
+        df = pd.read_csv("../data/data.csv")
+        X = df.drop(columns=["Class"])
 
         X_train_scaled = pd.DataFrame(X_train_scaled, columns=X.columns)
         X_val_scaled = pd.DataFrame(X_val_scaled, columns=X.columns)
@@ -201,11 +171,9 @@ def main():
 
         #         print(
         #             f"C={C}, l1_ratio={i}, "
-        #             f"Precision={precision_score(y_val, y_val_pred,
-        #                                          zero_division=0):.3f}, "
-        #             f"Recall={recall_score(y_val, y_val_pred,
-        #                                    zero_division=0):.3f}, "
-        #             f"F1={f1_score(y_val, y_val_pred, zero_division=0):.3f}"
+        #             f"Precision={precision_score(y_val, y_val_pred):.3f}, "
+        #             f"Recall={recall_score(y_val, y_val_pred):.3f}, "
+        #             f"F1={f1_score(y_val, y_val_pred):.3f}"
         #         )
 
         # Can now use combined training/validation data
@@ -220,7 +188,7 @@ def main():
         final_model = make_pipeline(
                 # After testing hyperparams, base offered best recall
                 # Scaling over the PCA hurt performance
-                LogisticRegression(C=0.5)
+                LogisticRegression(C=0.5, l1_ratio=0)  # L2 - Ridge
             )
         final_model.fit(X_train, y_train)
         y_pred = final_model.predict(X_test)
@@ -254,7 +222,7 @@ def main():
         # accuracy = (TP+TN)/(TP+TN+FP+FN)
         # precision = TP/(TP+FP)
         # recall = TP/(TP+FN)
-        # f1 = 2*(precision*recall)/(precision+recall)) 
+        # f1 = 2*(precision*recall)/(precision+recall))
 
         print("Accuracy:", accuracy_score(y_test, y_pred))
         print("Precision:", precision_score(y_test, y_pred))  # 0.791
@@ -268,11 +236,45 @@ def main():
         # Precision and recall would be more helpful here along with F1.
         # Recall especially.
 
+    def random_forest():
+        (X_temp, X_test, y_temp, y_test,
+         X_train, X_val, y_train, y_val) = load_data()
+
+        X_train = X_temp
+        y_train = y_temp
+
+        final_model = make_pipeline(RandomForestClassifier())
+
+        final_model.fit(X_train, y_train)
+        y_pred = final_model.predict(X_test)
+
+        # Since we are doing classification, we should test Accuracy,
+        # Precision, Recall, and F1-Score
+
+        # First get our confusion matrix, since binary classification it's 2x2
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        print(cm)
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["Not Fraud (0)", "Fraud (1)"]
+        )
+
+        disp.plot()
+        plt.show()
+
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        print("Precision:", precision_score(y_test, y_pred))  # 0.9508
+        print("Recall:", recall_score(y_test, y_pred))  # 0.78378
+        print("F1:", f1_score(y_test, y_pred))  # 0.8592
+
     # Run the code
 
     # eda()
 
-    logistic_regression_model()
+    # logistic_regression_model()
+
+    random_forest()
 
 
 if __name__ == '__main__':
