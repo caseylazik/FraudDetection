@@ -263,6 +263,7 @@ def main():
         disp.plot()
         plt.show()
 
+        # Way better than logistic regression
         print("Accuracy:", accuracy_score(y_test, y_pred))
         print("Precision:", precision_score(y_test, y_pred))  # 0.9508
         print("Recall:", recall_score(y_test, y_pred))  # 0.78378
