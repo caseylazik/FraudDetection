@@ -14,8 +14,10 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay
 )
 from sklearn.ensemble import RandomForestClassifier
-from utilities import load_data
-
+from utilities import load_data, seed
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import GridSearchCV
+from utilities import find_optimal_classification_threshold
 
 def main():
 
@@ -136,16 +138,15 @@ def main():
         # magnitude—such as k‑NN, SVMs, logistic regression,
         # neural networks, and k-means/clustering algorithms—need feature
         # scaling to perform correctly. Also when doing PCA (non-model)
-        # you do it.
-        scaler = StandardScaler()  # Manual way to scale, can also use pipeline
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_val_scaled = scaler.transform(X_val)
+        # scaler = StandardScaler()  # Manual scale, can also use pipeline
+        # X_train_scaled = scaler.fit_transform(X_train)
+        # X_val_scaled = scaler.transform(X_val)
 
-        df = pd.read_csv("../data/data.csv")
-        X = df.drop(columns=["Class"])
+        # df = pd.read_csv("../data/data.csv")
+        # X = df.drop(columns=["Class"])
 
-        X_train_scaled = pd.DataFrame(X_train_scaled, columns=X.columns)
-        X_val_scaled = pd.DataFrame(X_val_scaled, columns=X.columns)
+        # X_train_scaled = pd.DataFrame(X_train_scaled, columns=X.columns)
+        # X_val_scaled = pd.DataFrame(X_val_scaled, columns=X.columns)
 
         # Hyperparameters of Logistic Regression model:
         # Maximum Iterations: How long solver to run
@@ -176,22 +177,29 @@ def main():
         #             f"F1={f1_score(y_val, y_val_pred):.3f}"
         #         )
 
-        # Can now use combined training/validation data
-        X_train = X_temp
-        y_train = y_temp
-
         # NOTE: Regularization makes coefficients of unimportant features
         # small (L1 goes to 0, L2 goes really small). So don't need to
         # remove features
 
-        # Pipeline is easier
-        final_model = make_pipeline(
-                # After testing hyperparams, base offered best recall
-                # Scaling over the PCA hurt performance
-                LogisticRegression(C=0.5, l1_ratio=0)  # L2 - Ridge
-            )
+        # Pipeline is easier for preprocessing, like adding standard scalar, 
+        # or PCA. Can still use if not but uneccessary.
+        # After testing hyperparams, base offered best recall
+        # Scaling over the PCA hurt performance # L2 - Ridge
+        final_model = LogisticRegression(C=0.5, l1_ratio=0, max_iter=10000)
+
+        threshold = find_optimal_classification_threshold(final_model, X_val,
+                                                          y_val, X_train, 
+                                                          y_train)
+
+        # Can now use combined training/validation data
+        X_train = X_temp
+        y_train = y_temp
+
         final_model.fit(X_train, y_train)
-        y_pred = final_model.predict(X_test)
+
+        y_prob = final_model.predict_proba(X_test)[:, 1]
+        y_pred = (y_prob >= threshold).astype(int)
+
 
         # Since we are doing classification, we should test Accuracy,
         # Precision, Recall, and F1-Score
@@ -223,11 +231,15 @@ def main():
         # precision = TP/(TP+FP)
         # recall = TP/(TP+FN)
         # f1 = 2*(precision*recall)/(precision+recall))
-
+        # base  # 0.791    # 0.7162   # .7517
         print("Accuracy:", accuracy_score(y_test, y_pred))
-        print("Precision:", precision_score(y_test, y_pred))  # 0.791
-        print("Recall:", recall_score(y_test, y_pred))  # 0.7162
-        print("F1:", f1_score(y_test, y_pred))  # .7517
+        print("Precision:", precision_score(y_test, y_pred))  
+        print("Recall:", recall_score(y_test, y_pred))   
+        print("F1:", f1_score(y_test, y_pred))   
+
+        # With threshold: Precision: 0.7402597402597403
+        # Recall: 0.7702702702702703
+        # F1: 0.7549668874172185
 
         print()
 
@@ -240,16 +252,61 @@ def main():
         (X_temp, X_test, y_temp, y_test,
          X_train, X_val, y_train, y_val) = load_data()
 
+        # best_f1 = 0
+        # best_params = []
+        # cur_forest = 1
+
+        # for n_est in [100, 250, 400]:
+        #     for max_depth in [None, 10, 20, 30]:
+        #         for min_samples_leaf in [1, 2, 4]:
+        #             for min_samples_split in [2, 5, 10]:
+        #                 for max_features in ["sqrt", 0.5]:
+        #                     print("Forest number", cur_forest)
+        #                     cur_forest += 1
+        #                     # Need seed because generating forest is random.
+        #                     # Also, n_jobs=-1 speeds up process by using all
+        #                     # cpu cores. Pipeline still works but not
+        #                     # necessary since no preprocessing
+        #                     cur_model = RandomForestClassifier(n_estimators=n_est,
+        #                                                        max_depth=max_depth,
+        #                                                        min_samples_leaf=min_samples_leaf,
+        #                                                        min_samples_split=min_samples_split,
+        #                                                        max_features=max_features,n_jobs=-1,
+        #                                                        random_state=seed())
+
+        #                     cur_model.fit(X_train, y_train)
+        #                     y_val_pred = cur_model.predict(X_val)
+
+        #                     cur_f1 = f1_score(y_val, y_val_pred)
+
+        #                     if cur_f1 > best_f1: # Let's try to prioritize f1
+        #                         best_f1 = cur_f1
+        #                         best_params = [n_est, max_depth,
+        #                                        min_samples_leaf,
+        #                                        min_samples_split,
+        #                                        max_features]
+        #                         print(best_f1)
+
+        # print(best_params, best_f1)  # [100, None, 1, 2, 0.5] 0.89208, on validation data
+
+        # Again baseline model is the best
+        final_model = RandomForestClassifier(random_state=seed())
+
+        threshold = find_optimal_classification_threshold(final_model, X_val,
+                                                          y_val, X_train,
+                                                          y_train)
+
+        # Combine together
         X_train = X_temp
         y_train = y_temp
 
-        final_model = make_pipeline(RandomForestClassifier())
+        # final_model.fit(X_train, y_train)
 
-        final_model.fit(X_train, y_train)
-        y_pred = final_model.predict(X_test)
+        y_proba = final_model.predict_proba(X_test)[:, 1]
 
-        # Since we are doing classification, we should test Accuracy,
-        # Precision, Recall, and F1-Score
+        y_pred = (y_proba >= threshold).astype(int)
+
+        # Since we are doing classification, test Accuracy/Precision/Recall/F1
 
         # First get our confusion matrix, since binary classification it's 2x2
         cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
@@ -269,13 +326,97 @@ def main():
         print("Recall:", recall_score(y_test, y_pred))  # 0.78378
         print("F1:", f1_score(y_test, y_pred))  # 0.8592
 
+    def neural_network():
+        (X_temp, X_test, y_temp, y_test,
+         X_train, X_val, y_train, y_val) = load_data()
+
+        # NEED standard scalar otherwise awful.
+
+        # Uses L2 by default
+        # mlp = make_pipeline(StandardScaler(), MLPClassifier(
+        #     random_state=seed(),
+        #     early_stopping=True,
+        #     activation='logistic', # Sigmoid since binary classification.
+        #     solver='sgd'
+        # ))
+
+        # since using pipeline, need to prefix with mlpclassifier
+        # param_grid = {
+        #     'mlpclassifier__hidden_layer_sizes': [
+        #         (64, 64),
+        #         (64, 128),
+        #         (256, 128),
+        #         (256, 128, 64)
+        #     ],
+        #     'mlpclassifier__batch_size': [64, 128, 256],
+        #     'mlpclassifier__learning_rate_init': [0.0001, 0.001, 0.005, 0.01],
+        #     'mlpclassifier__alpha': [0.0001, 0.001, 0.01, 0.1], # Since using L2, this controls that
+        # }
+
+        # grid = GridSearchCV(
+        #     estimator=mlp,
+        #     param_grid=param_grid,
+        #     cv=3,
+        #     scoring='f1',
+        #     n_jobs=-1,
+        #     verbose=1  # print progress
+        # )
+
+        # grid.fit(X_train, y_train)
+
+        # print("Best parameters:", grid.best_params_)
+        # print("Best score:", grid.best_score_)
+
+        # Best parameters: {'mlpclassifier__alpha': 0.0001,
+        #                   'mlpclassifier__batch_size': 64,
+        #                   'mlpclassifier__hidden_layer_sizes': (64, 64),
+        #                   'mlpclassifier__learning_rate_init': 0.01}
+        # Best score: 0.8223367329542938
+
+        # Precision: 0.90476   Recall: 0.7702702 F1: 0.83211 - base
+        final_model = make_pipeline(StandardScaler(),
+                                    MLPClassifier(random_state=seed(),
+                                                  activation="logistic",
+                                                  early_stopping=True))
+
+        threshold = find_optimal_classification_threshold(final_model, X_val,
+                                                          y_val, X_train,
+                                                          y_train)
+
+        X_train = X_temp
+        y_train = y_temp
+
+        final_model.fit(X_train, y_train)
+
+        y_prob = final_model.predict_proba(X_test)[:, 1]
+        y_pred = (y_prob >= threshold).astype(int)
+
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        print(cm)
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["Not Fraud (0)", "Fraud (1)"]
+        )
+
+        disp.plot()
+        plt.show()
+
+        # NN classifier better than logistic, worse than random forest
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        print("Precision:", precision_score(y_test, y_pred))   
+        print("Recall:", recall_score(y_test, y_pred))   
+        print("F1:", f1_score(y_test, y_pred))   
+
     # Run the code
 
     # eda()
 
-    # logistic_regression_model()
+    logistic_regression_model()
 
-    random_forest()
+    # random_forest()
+
+    # neural_network()
 
 
 if __name__ == '__main__':
