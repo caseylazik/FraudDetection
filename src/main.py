@@ -18,6 +18,8 @@ from utilities import load_data, seed
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import GridSearchCV
 from utilities import find_optimal_classification_threshold
+from xgboost import XGBClassifier
+
 
 def main():
 
@@ -128,12 +130,12 @@ def main():
         (X_temp, X_test, y_temp, y_test,
          X_train, X_val, y_train, y_val) = load_data()
 
-        print("Training samples:", len(X_train))
-        print("Validation samples:", len(X_val))
-        print("Test samples:", len(X_test))
+        # print("Training samples:", len(X_train))
+        # print("Validation samples:", len(X_val))
+        # print("Test samples:", len(X_test))
 
         # Even though we have mostly PCA variables, I will be
-        # using amount and time, which can be large.
+        # using amount and time, which can be large. So scale.
         # Models that rely on distance, similarity, or gradient
         # magnitude—such as k‑NN, SVMs, logistic regression,
         # neural networks, and k-means/clustering algorithms—need feature
@@ -181,14 +183,14 @@ def main():
         # small (L1 goes to 0, L2 goes really small). So don't need to
         # remove features
 
-        # Pipeline is easier for preprocessing, like adding standard scalar, 
+        # Pipeline is easier for preprocessing, like adding standard scalar,
         # or PCA. Can still use if not but uneccessary.
         # After testing hyperparams, base offered best recall
         # Scaling over the PCA hurt performance # L2 - Ridge
         final_model = LogisticRegression(C=0.5, l1_ratio=0, max_iter=10000)
 
         threshold = find_optimal_classification_threshold(final_model, X_val,
-                                                          y_val, X_train, 
+                                                          y_val, X_train,
                                                           y_train)
 
         # Can now use combined training/validation data
@@ -199,7 +201,6 @@ def main():
 
         y_prob = final_model.predict_proba(X_test)[:, 1]
         y_pred = (y_prob >= threshold).astype(int)
-
 
         # Since we are doing classification, we should test Accuracy,
         # Precision, Recall, and F1-Score
@@ -231,22 +232,20 @@ def main():
         # precision = TP/(TP+FP)
         # recall = TP/(TP+FN)
         # f1 = 2*(precision*recall)/(precision+recall))
+
         # base  # 0.791    # 0.7162   # .7517
         print("Accuracy:", accuracy_score(y_test, y_pred))
-        print("Precision:", precision_score(y_test, y_pred))  
-        print("Recall:", recall_score(y_test, y_pred))   
-        print("F1:", f1_score(y_test, y_pred))   
+        print("Precision:", precision_score(y_test, y_pred))
+        print("Recall:", recall_score(y_test, y_pred))
+        print("F1:", f1_score(y_test, y_pred))
 
-        # With threshold: Precision: 0.7402597402597403
-        # Recall: 0.7702702702702703
-        # F1: 0.7549668874172185
-
-        print()
+        # With threshold: Precision: 0.740
+        # Recall: 0.77027
+        # F1: 0.754966887
 
         # Since credit card fraud is only about 0.173% of transactions,
         # accuracy alone isn't enough, since most transactions are legit.
-        # Precision and recall would be more helpful here along with F1.
-        # Recall especially.
+        # Precision, recall, and F1 are better, recall especiall.
 
     def random_forest():
         (X_temp, X_test, y_temp, y_test,
@@ -255,6 +254,8 @@ def main():
         # best_f1 = 0
         # best_params = []
         # cur_forest = 1
+
+        # Manual gridsearch with forloops:
 
         # for n_est in [100, 250, 400]:
         #     for max_depth in [None, 10, 20, 30]:
@@ -356,7 +357,6 @@ def main():
         # grid = GridSearchCV(
         #     estimator=mlp,
         #     param_grid=param_grid,
-        #     cv=3,
         #     scoring='f1',
         #     n_jobs=-1,
         #     verbose=1  # print progress
@@ -404,19 +404,91 @@ def main():
 
         # NN classifier better than logistic, worse than random forest
         print("Accuracy:", accuracy_score(y_test, y_pred))
-        print("Precision:", precision_score(y_test, y_pred))   
-        print("Recall:", recall_score(y_test, y_pred))   
-        print("F1:", f1_score(y_test, y_pred))   
+        print("Precision:", precision_score(y_test, y_pred))
+        print("Recall:", recall_score(y_test, y_pred))
+        print("F1:", f1_score(y_test, y_pred))
+
+    def XGBoost():
+        (X_temp, X_test, y_temp, y_test,
+         X_train, X_val, y_train, y_val) = load_data()
+
+
+
+        # XGB_class = XGBClassifier(random_state=seed())
+
+        # param_grid = {
+        #         "n_estimators": [100, 200, 300],
+        #         "max_depth": [3, 5, 7],
+        #         "learning_rate": [0.01, 0.05, 0.1],
+        #         "min_child_weight": [1, 3, 5, 7],
+        #         "reg_alpha": [0, 0.01, 0.1, 1],
+        #         "reg_lambda": [0.01, 0.1, 1, 10]
+        # }
+
+        # grid = GridSearchCV(
+        #         estimator=XGB_class,
+        #         param_grid=param_grid,
+        #         scoring="f1",
+        #         n_jobs=-1,
+        #         verbose=1
+        # )
+        # grid.fit(X_train, y_train)
+        
+        # print("Best parameters:", grid.best_params_)
+        # print("Best score:", grid.best_score_)
+
+        # Best parameters: {'learning_rate': 0.05, 'max_depth': 5, 'min_child_weight': 1, 'n_estimators': 300, 'reg_alpha': 0.1, 'reg_lambda': 0.01}
+        # Best score: 0.8687534848841569
+
+
+        # Should try earling stopping too. Instead of finding n_estimators in tuning process, i.e. do it after.
+
+        final_model = XGBClassifier(learning_rate = 0.05, max_depth=5,
+                                    min_child_weight=1, n_estimators=300,
+                                    reg_alpha=0.1, reg_lambda=0.01)
+
+        threshold = find_optimal_classification_threshold(final_model, X_val,
+                                                          y_val, X_train,
+                                                          y_train)
+
+        X_train = X_temp
+        y_train = y_temp
+
+        final_model.fit(X_train, y_train)
+
+        y_prob = final_model.predict_proba(X_test)[:, 1]
+        y_pred = (y_prob >= threshold).astype(int)
+
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        print(cm)
+
+        disp = ConfusionMatrixDisplay(
+            confusion_matrix=cm,
+            display_labels=["Not Fraud (0)", "Fraud (1)"]
+        )
+
+        disp.plot()
+        plt.show()
+
+        # XGBoost performed the best.
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        print("Precision:", precision_score(y_test, y_pred)) # 0.967213 
+        print("Recall:", recall_score(y_test, y_pred)) #  0.797297 
+        print("F1:", f1_score(y_test, y_pred)) #  0.874074 
+
+
 
     # Run the code
 
     # eda()
 
-    logistic_regression_model()
+    # logistic_regression_model()
 
     # random_forest()
 
     # neural_network()
+
+    XGBoost()
 
 
 if __name__ == '__main__':
