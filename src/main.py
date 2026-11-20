@@ -1,25 +1,25 @@
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    accuracy_score,
+    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
-    accuracy_score,
-    confusion_matrix,
-    ConfusionMatrixDisplay
 )
-from sklearn.ensemble import RandomForestClassifier
-from utilities import load_data, seed
 from sklearn.neural_network import MLPClassifier
-from sklearn.model_selection import GridSearchCV
-from utilities import find_optimal_classification_threshold
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
+from utilities import find_optimal_classification_threshold, load_data, seed
+
+# from sklearn.model_selection import GridSearchCV
 
 def main():
 
@@ -371,7 +371,7 @@ def main():
         #                   'mlpclassifier__batch_size': 64,
         #                   'mlpclassifier__hidden_layer_sizes': (64, 64),
         #                   'mlpclassifier__learning_rate_init': 0.01}
-        # Best score: 0.8223367329542938
+        # Best score: 0.8223
 
         # Precision: 0.90476   Recall: 0.7702702 F1: 0.83211 - base
         final_model = make_pipeline(StandardScaler(),

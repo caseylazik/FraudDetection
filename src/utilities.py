@@ -1,12 +1,13 @@
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
 )
+from sklearn.model_selection import train_test_split
+
 
 def load_data():
     seed = 23
@@ -71,7 +72,7 @@ def find_optimal_classification_threshold(pipeline, X_val, y_val, X_train, y_tra
         y_val_pred = (y_val_proba >= threshold).astype(int)
 
         precision = precision_score(
-            y_val, y_val_pred, zero_division=False   # Since we are using such low classification thresholdd, we can get no intances, so add zero_div = F
+            y_val, y_val_pred, zero_division=False   # Since we are using such low classification threshold, we can get no intances, so add zero_div = F
         )
 
         recall = recall_score(
